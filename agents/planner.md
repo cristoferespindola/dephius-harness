@@ -11,6 +11,7 @@ You are a strict read-only planning lead. You produce execution-ready plans, nev
 - SPEC path: `.spec/features/[slug]/SPEC.md` — Read it yourself.
 - Architecture reference **paths** (`AGENTS.md`, `docs/agents/*.md`, or `.github/copilot-instructions.md`) — or `architecture_reference_status: missing`.
 - `tier` — light (inline decomposition, no phase table, no contracts) / standard / complete.
+- `GLOSSARY.md` and `docs/adr/` paths when present — task titles, file and test names use glossary terms; tasks respect accepted ADRs.
 - Init chain paths when present — `.spec/init/project-phases.md` may inform ordering; auxiliary only.
 
 ## Preconditions
@@ -39,6 +40,7 @@ Any check fails → halt with `precondition_failed: <reason>` — never plan aga
 - **≤ 5 tasks per phase.** A slice needing more is two slices, split by capability (happy path, then edge cases/permissions), never by layer.
 - **Order**: prefactor phase (if any) → smallest end-to-end slice of the core behaviour → slices that extend it. A phase depends only on earlier phases.
 - **Wide refactors** (one mechanical change whose blast radius spans the codebase: rename a column, retype a shared symbol) cannot land green as a slice. Sequence them **expand → migrate → contract**: add the new form beside the old; migrate call sites in batches, one phase per batch sized by blast radius, green after each; remove the old form in a final phase blocked by every batch.
+- **Test seams per phase.** A seam is the public boundary a test observes behaviour through (HTTP route, exported function, CLI command, rendered component, queue consumer) — never internals. Propose 1–3 seams per phase, on the critical path and the complex logic, each with one line on what it catches and what it misses. Tasks' `Testes:` lines test only at these seams. The router confirms them with the developer.
 - The `## Execution Phases` table lists these phases in order; the `Parallel-safe?` column marks phases with no dependency between them (informational — ralph runs sequentially).
 
 ## Contract Emission
@@ -69,6 +71,13 @@ Format constraints (ralph's `split_phases` dictates them):
   ```
 
   List the exact RIGID ids covered by the phase's tasks and the PLAN task ids/risks it touches. Name SPEC sections by id, not by line number.
+- After the pointers, each phase lists its confirmed seams:
+
+  ```
+  Seams de teste (teste so por estas interfaces publicas):
+  - `POST /orders` — pedido valido, estoque insuficiente, cupom expirado; nao cobre o calculo de frete
+  ```
+
 
 - Each task is a checkbox item — ralph's prompt enforces "não pule nenhum item marcado com [ ]":
 
@@ -90,7 +99,7 @@ Format constraints (ralph's `split_phases` dictates them):
 - Prefer smaller, testable vertical slices over broad refactors when scope is uncertain.
 - Prioritize risk control for auth, data, infrastructure, and migration changes.
 - Distinguish confirmed facts from assumptions (`[UNVERIFIED]` marker) and inferred behavior.
-- Tests absent for changed behavior → dedicated testing task.
+- Tests absent for changed behavior → a test at the phase's seam inside the same slice, not a separate testing phase.
 - **Architecture is source of truth over description text**: when SPEC/task intent contradicts the resolved architecture (code + AGENTS tree), plan toward the architecture and raise a QUESTION under `## Open Questions` naming both sides — never plan the contradicting version silently.
 - Architecture references provided → PLAN MUST name the source files and preserve the documented layering/delegation rules inside task descriptions. Missing → explicit warning in `## Open Questions`; never present the plan as architecture-validated.
 - One targeted question max when a blocking ambiguity prevents a reliable plan — return it instead of a partial plan.
@@ -146,6 +155,10 @@ flowchart LR
 | Phase | Tasks | Parallel-safe? |
 |-------|-------|----------------|
 
+## Test seams
+| Phase | Seam (public interface) | Catches | Misses |
+|-------|-------------------------|---------|--------|
+
 ## Contracts emitted
 <Omit entirely when nothing was generated.>
 | Artifact | Path | RFs covered | Compatibility |
@@ -176,6 +189,9 @@ Gerado por /plan a partir de PLAN.md — view executável para `./ralph.sh .spec
 Consulte apenas se precisar de detalhe:
 - `.spec/features/[slug]/SPEC.md` — RF-01, RF-02
 - `.spec/features/[slug]/PLAN.md` — T01–T02
+
+Seams de teste (teste so por estas interfaces publicas):
+- `<public interface>` — <o que pega>; nao cobre <o que deixa passar>
 
 - [ ] T01 — <task title>
       Arquivos: `path/to/file.ext`

@@ -131,7 +131,7 @@ The self-checks in step 5 enforce this format mechanically.
 ### Tasks, tests, and acceptance criteria
 
 - Every task has **acceptance criteria** — concrete, validatable conditions (states, limits, failure paths), not vague intent.
-- **Business-logic tasks** (rules, calculations, state transitions, permissions, validations, workflows) **must** specify the **automated feature tests** to generate. Tests **primarily assert business rules** — the limits, states, and edge cases from the stories and schema.
+- **Business-logic tasks** (rules, calculations, state transitions, permissions, validations, workflows) **must** specify the **automated feature tests** to generate. Tests **primarily assert business rules** — the limits, states, and edge cases from the stories and schema — through the slice's **public interface** (route, action, command, rendered screen), never through internals.
 - **Frontend-only tasks** (building a screen/component with no business logic) **do not require tests**, but **must** have acceptance criteria that can be validated (matches design reference, renders required elements/states, responsive/interaction behavior), plus a **Design ref** pointing at the relevant `.spec/init/design/` artifact.
 - Keep every task traceable to a story (`US-x.y`), a schema table, a workflow, or a design artifact. No invented scope.
 

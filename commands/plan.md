@@ -66,6 +66,7 @@ Resolve the description per the Input table. Then derive:
 Single parallel probe batch (Bash `test -f` + Read only what exists):
 
 - `AGENTS.md`, `docs/agents/architecture.md`, `docs/agents/domain_rules.md`, `.github/copilot-instructions.md`
+- Domain language: `GLOSSARY.md` and the ADR directory (`docs/adr/`) — pass their paths to every agent; created by the clarifier when absent
 - Init chain: `.spec/init/project-description.md`, `.spec/init/user-stories.md`, `.spec/init/database-schema.md`, `.spec/init/project-phases.md`
 - Resume probe: `.spec/features/[slug]/SPEC.md`, `.spec/features/[slug]/PLAN.md`, `.spec/features/[slug]/PHASES.md`
 
@@ -102,17 +103,16 @@ grep -q '^## TO BE' .spec/features/[slug]/SPEC.md
 
 **Human checkpoint** — present the returned summary (RF/UI/RNF count, marker count, tier); developer approves before proceeding. Scope grew beyond the confirmed ACs → stop and propose splitting.
 
-### 6 — (Conditional) Delegate to `clarifier`
+### 6 — Grilling rounds with `clarifier`
 
-Run when `grep -c '\[NEEDS CLARIFICATION\]' SPEC.md` > 0, OR tier is `complete`, OR the developer reports doubts. Otherwise skip.
+Always run, every tier. Misalignment is the most expensive defect: a question here costs seconds, a wrong phase costs a ralph run. Loop in rounds — the subagent never talks to the developer; you do:
 
-Two-phase — the subagent never talks to the developer; you do:
+1. **analyze** — clarifier reads the SPEC and returns at most 5 prioritized questions for this round, each with a suggested answer and its impact (no edits). `No open questions` → leave the loop.
+2. You present the round to the developer (AskUserQuestion, one batch, the suggested answer as the first option) and collect answers. The developer may accept every suggestion at once.
+3. **resolve** — re-invoke clarifier with the answers (inline when short; otherwise write `.spec/features/[slug]/.handoff/clarifier-answers.md` and pass the path). It updates the SPEC in-place, increments the version, records settled terms in `GLOSSARY.md` and hard-to-reverse decisions as ADRs under `docs/adr/`.
+4. Next round. Answers often open new branches — keep going until analyze returns `No open questions`, the developer says stop, or **3 rounds** have run (remaining questions → listed in the summary as open, never silently dropped).
 
-1. **analyze** — clarifier reads the SPEC and returns prioritized questions (no edits).
-2. You present the questions to the developer (AskUserQuestion, one batch) and collect answers.
-3. **resolve** — re-invoke clarifier with the answers (inline when short; otherwise write `.spec/features/[slug]/.handoff/clarifier-answers.md` and pass the path). It updates the SPEC in-place and increments the version.
-
-Verify after resolve: `grep -c '\[NEEDS CLARIFICATION\]'` — remaining markers → warn the developer explicitly before continuing.
+Verify after the loop: `grep -c '\[NEEDS CLARIFICATION\]'` — remaining markers → warn the developer explicitly before continuing.
 
 ### 7 — Delegate to `planner`
 
@@ -142,7 +142,7 @@ When the planner reports contracts emitted, also `test -f` each reported contrac
 
 Any printed line or failed test → re-delegate to `planner` with the failing check; never hand ralph a PHASES.md it will reject.
 
-**Human checkpoint** — present task count, phases (each as a one-line vertical slice), risks, and contract paths when emitted; developer confirms the decomposition before closing.
+**Human checkpoint** — present task count, phases (each as a one-line vertical slice) **with the test seams the planner proposed for each phase** (public interface under test + what it catches/misses), risks, and contract paths when emitted; developer confirms the decomposition **and the seams** before closing. Seam changes → re-delegate to `planner` with the corrected seams; no test is planned at an unconfirmed seam.
 
 ### 8 — Summary
 
@@ -171,7 +171,7 @@ Closing lines: unresolved markers count (when > 0), then the execution handoff �
 
 - **Thin router** — no SPEC/PLAN template content in this file; agents own the shapes.
 - **Delegate plugin-namespaced** (`bc-harness:specifier`, `bc-harness:clarifier`, `bc-harness:planner`), never bare.
-- **Never write application code.** The pipeline writes only under `.spec/features/[slug]/` (router itself only under `.handoff/`).
+- **Never write application code.** The pipeline writes only under `.spec/features/[slug]/` (router itself only under `.handoff/`), plus `GLOSSARY.md` and `docs/adr/` — written only by the clarifier from developer answers.
 - **No issue tracker** — the confirmed description + ACs are the source of truth; never invent an external reference.
 - Scope grows mid-planning → stop, propose splitting into smaller features and re-running `/plan` per slice.
 - Architecture references loaded → SPEC.md and PLAN.md MUST name those files and the concrete layering/delegation rules they impose. None available → warning, never silent.

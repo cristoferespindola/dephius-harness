@@ -93,6 +93,7 @@ Write to `.spec/init/project-description.md` (create the `.spec/init/` directori
 Rules for the document:
 
 - **Title** = project name + `— Project Description`.
+- **Key Concepts → `GLOSSARY.md`**: when the repo root has no `GLOSSARY.md`, also write one with an entry per key concept (`**<Term>**:` line, one-sentence definition, `_Avoid_:` synonyms the interview rejected). When it exists, it is the canonical source: use its terms in Key Concepts and add only concepts it lacks. `/plan`'s clarifier and `ralph` read it from there.
 - **Overview** carries the "what & why"; **Key Concepts** is the domain glossary; **Tech Stack** is concrete and detected; **Core Workflows** is the numbered list of main flows.
 - Prefer specific numbers, limits, and rules over vague description. If the domain has quantities (counts, tiers, scoring), state them.
 - Keep every claim traceable to something the developer confirmed or you detected. No invented features.
