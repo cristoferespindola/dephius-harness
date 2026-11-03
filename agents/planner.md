@@ -24,11 +24,22 @@ Any check fails → halt with `precondition_failed: <reason>` — never plan aga
 
 1. Parse the SPEC into objective, non-goals, constraints, acceptance criteria, and the architecture rules that govern the affected area.
 2. Explore affected paths (Glob/Grep/Read); identify impacted modules, dependency surfaces, and shared file touchpoints. Capture the **AS IS — Componentes impactados** diagram (verified nodes; `?` suffix when unverified; greenfield → `_AS IS não aplicável — feature greenfield._`) and the **TO BE — Componentes propostos** diagram (same type, new/changed nodes annotated `(novo)`/`(alterado)`, each traceable to a task id).
-3. Decompose into atomic tasks: files, change, covered RIGID ids, tests, risk, dependencies.
-4. Classify dependencies into parallel-safe and sequential phases; tasks touching the same file or tight shared interface are never parallel.
-5. Add risks (blast radius, mitigation, rollback) and rollout guidance.
-6. **Contract emission (conditional)** — see below.
-7. `mkdir -p .spec/features/[slug]` (Bash), **Write** PLAN.md, then **Write** PHASES.md derived from it (never Bash cat/echo). Return paths + summary ≤ 200 bytes (task count, phases, contract count).
+3. Look for **prefactoring** that makes the feature easy ("make the change easy, then make the easy change"): a refactor, extraction, or seam the feature needs. Prefactor tasks come first, in their own phase, behaviour-preserving and green on their own.
+4. Decompose into atomic tasks: files, change, covered RIGID ids, tests, risk, dependencies.
+5. Group tasks into **vertical-slice phases** (see Phase shaping). Within the dependency order, tasks touching the same file or tight shared interface are never parallel.
+6. Add risks (blast radius, mitigation, rollback) and rollout guidance.
+7. **Contract emission (conditional)** — see below.
+8. `mkdir -p .spec/features/[slug]` (Bash), **Write** PLAN.md, then **Write** PHASES.md derived from it (never Bash cat/echo). Return paths + summary ≤ 200 bytes (task count, phases, contract count).
+
+## Phase shaping
+
+`scripts/ralph.sh` runs each phase in one fresh agent session and rejects a phase with more than **5 checkbox tasks** or **12,000 characters**. Shape phases for that:
+
+- **Vertical slices, not layers.** Each phase is a tracer bullet: a narrow but complete path through every layer its behaviour needs (schema, logic, API/UI, tests), verifiable on its own. Never a phase that only adds migrations, only models, or only components for later phases.
+- **≤ 5 tasks per phase.** A slice needing more is two slices, split by capability (happy path, then edge cases/permissions), never by layer.
+- **Order**: prefactor phase (if any) → smallest end-to-end slice of the core behaviour → slices that extend it. A phase depends only on earlier phases.
+- **Wide refactors** (one mechanical change whose blast radius spans the codebase: rename a column, retype a shared symbol) cannot land green as a slice. Sequence them **expand → migrate → contract**: add the new form beside the old; migrate call sites in batches, one phase per batch sized by blast radius, green after each; remove the old form in a final phase blocked by every batch.
+- The `## Execution Phases` table lists these phases in order; the `Parallel-safe?` column marks phases with no dependency between them (informational — ralph runs sequentially).
 
 ## Contract Emission
 
@@ -48,14 +59,16 @@ Rules: no generic types (`object`, `any`, `Map<String, Object>`) — every schem
 Format constraints (ralph's `split_phases` dictates them):
 
 - Phase headings MUST match `^## Phase N: <title>` — colon separator, numbered contiguously from 1. Same machine contract as `.spec/init/project-phases.md`; `ralph.sh` preflight rejects any deviation. These are the ONLY level-2 headings allowed in the file — any other `## ` heading truncates the phase before it. `# ` title line and `### `/deeper headings are safe.
-- Phase grouping mirrors the `## Execution Phases` table exactly: same task-to-phase assignment, same order; parallel-safe tasks share a phase, sequential dependencies get later phases. `light` tier → single `## Phase 1` with all tasks.
-- Each phase body starts with a context preamble (each ralph phase runs in a fresh engine session — the phase must be self-contained):
+- Phase grouping mirrors the `## Execution Phases` table exactly: same task-to-phase assignment, same order (see Phase shaping). `light` tier → single `## Phase 1` when it has ≤ 5 tasks; otherwise split into slices like any tier.
+- Each phase body starts with a context preamble that points to **only the sections this phase needs** — never the whole SPEC/PLAN. Every phase re-runs in a fresh session (and again on each correction cycle), so a whole-document pointer re-reads diagrams, contracts, and other phases' tasks every time. The task lines already carry what to do; the pointers are for detail:
 
   ```
-  Antes de implementar, leia:
-  1. `.spec/features/[slug]/SPEC.md` — requisitos RIGID que esta fase cobre
-  2. `.spec/features/[slug]/PLAN.md` — decomposição completa, dependências e riscos
+  Consulte apenas se precisar de detalhe:
+  - `.spec/features/[slug]/SPEC.md` — RF-03, RF-05, UI-02
+  - `.spec/features/[slug]/PLAN.md` — T07–T09 e o risco "migração de saldo"
   ```
+
+  List the exact RIGID ids covered by the phase's tasks and the PLAN task ids/risks it touches. Name SPEC sections by id, not by line number.
 
 - Each task is a checkbox item — ralph's prompt enforces "não pule nenhum item marcado com [ ]":
 
@@ -69,12 +82,12 @@ Format constraints (ralph's `split_phases` dictates them):
   ```
 
   Sub-lines indented under the checkbox (no leading `-`), so the checkbox count equals the task count. Content copied from the PLAN task, condensed — never diverging. `Acceptance criteria:` is mandatory on every task: ralph's independent verifier (gate 3) checks each checkbox against it.
-- Contracts emitted → the phase whose tasks implement an interface lists the contract file in its preamble as reading item 3 (e.g. `.spec/features/[slug]/openapi.yaml`).
-- Self-check before returning: `grep -Ec '^## Phase [0-9]+: '` equals the Execution Phases row count (or 1 for light); `grep -E '^## ' | grep -Ev '^## Phase [0-9]+: '` returns nothing; `grep -c '^- \[ \]'` equals the PLAN task count.
+- Contracts emitted → the phase whose tasks implement an interface lists the contract file and the operations it implements in its preamble (e.g. `.spec/features/[slug]/openapi.yaml` — `POST /orders`).
+- Self-check before returning: `grep -Ec '^## Phase [0-9]+: '` equals the Execution Phases row count; `grep -E '^## ' | grep -Ev '^## Phase [0-9]+: '` returns nothing; `grep -c '^- \[ \]'` equals the PLAN task count; no phase exceeds 5 checkbox tasks or 12,000 characters; no preamble points to SPEC.md/PLAN.md without listing ids.
 
 ## Decision Rules
 
-- Prefer smaller, testable phases over broad refactors when scope is uncertain.
+- Prefer smaller, testable vertical slices over broad refactors when scope is uncertain.
 - Prioritize risk control for auth, data, infrastructure, and migration changes.
 - Distinguish confirmed facts from assumptions (`[UNVERIFIED]` marker) and inferred behavior.
 - Tests absent for changed behavior → dedicated testing task.
@@ -160,9 +173,9 @@ Gerado por /plan a partir de PLAN.md — view executável para `./ralph.sh .spec
 
 ## Phase 1: <phase title>
 
-Antes de implementar, leia:
-1. `.spec/features/[slug]/SPEC.md` — requisitos RIGID que esta fase cobre
-2. `.spec/features/[slug]/PLAN.md` — decomposição completa, dependências e riscos
+Consulte apenas se precisar de detalhe:
+- `.spec/features/[slug]/SPEC.md` — RF-01, RF-02
+- `.spec/features/[slug]/PLAN.md` — T01–T02
 
 - [ ] T01 — <task title>
       Arquivos: `path/to/file.ext`

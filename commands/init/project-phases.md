@@ -24,7 +24,7 @@ Read the existing spec and produce a single document at **`.spec/init/project-ph
 2. Lists **every task** required to implement everything in the project description, user stories, and database schema — nothing implied by the spec is left unplanned.
 3. Gives each task concrete **acceptance criteria** and, where the task carries business logic, the **automated feature tests** to be generated as its acceptance gate.
 4. Marks tasks **already completed in the codebase** as `[x]`.
-5. Orders the work **foundation-first**, then feature flows.
+5. Orders the work as **vertical slices** (tracer bullets): a thin prefactor/bootstrap first, then each slice cuts end-to-end through every layer it needs.
 
 ## Process
 
@@ -89,7 +89,7 @@ For each task you define, check whether the code already satisfies it. If it doe
 
 Derive as much of the plan as you can directly from the docs, then ask the developer only about gaps that change the **shape, ordering, or sizing** of phases — do not interrogate on things the docs already answer. Focus on:
 
-- **Phase priorities / ordering** — which feature flows come first after the foundation.
+- **Phase priorities / ordering** — which slice is the first end-to-end path, and the order of the slices after it.
 - **MVP cut line** — which phases are in the first release vs deferred.
 - **Ambiguous scope** — flows implied but not fully specified in the stories.
 - **Design coverage** — screens with no design reference: build to a sensible default, or wait for design?
@@ -98,25 +98,22 @@ Use `AskUserQuestion` for discrete decisions with clear options. Ask real open q
 
 ## Rules for phasing
 
-### Foundation first, always
+### Vertical slices, not layers
 
-Order the phases so that **foundation work precedes feature flows**. The early phases build the base the rest stands on:
+Each phase is a **tracer bullet**: a narrow but COMPLETE path through every layer the behaviour needs (migration + model + rule + endpoint/action + screen + tests), demoable or verifiable on its own. Never a horizontal slice of one layer.
 
-1. **Database foundation** — all migrations and lookup-table seeders from the schema.
-2. **Models & relationships** — every model, with **all relationships wired up front** (belongsTo, hasMany, belongsToMany, etc.), casts, fillables, soft deletes. Do not defer relationships to later feature phases — the models come out of the foundation phase relationship-complete.
-3. **Frontend foundation** — the base UI: design-system components, layout, shared/reusable components referenced by the design specs.
-
-Only **after** the foundation is in place do the phases start implementing the **project flows** (auth, then each feature area / core workflow, feature by feature).
+- **No layer-wide foundation phases.** Do not plan "all migrations", "all models with every relationship", or "the whole design system" up front. Each slice creates the tables, models, relationships, and components **it** uses; later slices extend them. A layer built ahead of its first consumer is untested speculation and fails ralph's per-phase gates in isolation.
+- **Prefactor / bootstrap first, and keep it thin.** "Make the change easy, then make the easy change." Phase 1 may hold only what the first slice cannot exist without (project skeleton, auth scaffolding, test harness, a refactor that unblocks the slices) — never a layer for its own sake.
+- **Order slices by user value and dependency**: the first slice is the smallest end-to-end path through the core workflow; each later slice adds one capability on top.
+- **Wide refactors are the exception.** One mechanical change whose blast radius spans the codebase (rename a column, retype a shared symbol) cannot land green as a slice: sequence it **expand → migrate → contract** — add the new form beside the old, migrate call sites in batches (one phase per batch, sized by blast radius, CI green after each), then remove the old form in a final phase.
 
 ### Phase sizing (one agent session per phase)
 
-Size each phase so a single AI agent can implement it in **one focused session, within one context window** — big enough to be a coherent, shippable slice, small enough to fit comfortably without overflow.
+`scripts/ralph.sh` runs each `## Phase N:` in one fresh agent session and **rejects** a phase with more than **5 checkbox tasks** (`- [ ]` / `- [x]`, sub-phases included) or more than **12,000 characters** (`RALPH_MAX_TASKS` / `RALPH_MAX_PHASE_CHARS`). Plan within those limits — never rely on `--allow-large-phase`.
 
-Working heuristic: a phase (parent + all its sub-phases) covers **one feature area or one foundation layer** and stays around **10–15 tasks**. Beyond that, split into more top-level phases.
-
-- **Sub-phases count toward their parent phase's session.** A parent phase plus all its sub-phases together must still fit one session. If the total grows too large, split it into more top-level phases instead of overloading one parent.
-- Prefer more, well-scoped phases over a few oversized ones. **Any number of phases is fine** as long as each is detailed enough to implement everything in the description, stories, and schema with high quality and precision.
-- Keep each phase independently implementable and, where possible, independently verifiable.
+- **Sub-phases count toward their parent phase's session** and toward the 5-task limit. With slices this small, sub-phases are rarely needed; use them only to group tasks inside one phase.
+- A slice that needs more than 5 tasks is two slices: split by capability (happy path first, then edge cases / permissions / secondary screens), never by layer.
+- Prefer more, smaller phases. **Any number of phases is fine** as long as together they implement everything in the description, stories, and schema.
 
 ### Numbering
 
@@ -149,7 +146,7 @@ Write to `.spec/init/project-phases.md` (create the `.spec/init/` directories if
 
 ## Overview
 
-<1–2 paragraphs: the build strategy at a glance — foundation-first, then feature flows. Note how many phases, the MVP cut line, and that phases are referenced by number when handed to agents.>
+<1–2 paragraphs: the build strategy at a glance — thin bootstrap, then vertical slices in value order. Note how many phases, the MVP cut line, and that phases are referenced by number when handed to agents.>
 
 **Conventions:**
 - `[ ]` pending · `[x]` done in the codebase.
@@ -158,7 +155,7 @@ Write to `.spec/init/project-phases.md` (create the `.spec/init/` directories if
 
 ---
 
-## Phase 1: <Foundation — Name>
+## Phase 1: <Bootstrap or first slice — Name>
 
 **Goal:** <one line.> · **Depends on:** <none / Phase N> · **Covers:** <stories/tables/workflows>
 
@@ -192,8 +189,8 @@ Rules for the document:
 
 - **Title** = project name + `— Project Phases`.
 - **Line 3** is the machine-owned **input stamp**: `<!-- inputs: project-description.md@sha256:<12 chars> user-stories.md@sha256:<12 chars> database-schema.md@sha256:<12 chars> -->`, each checksum being `sha256sum <file> | cut -c1-12` over the files as read in step 1. Refresh it on **every** run, including re-run Edits — the chain status uses it to detect drift. Never preserve a stale stamp as a "developer edit".
-- Foundation phases come first; models are relationship-complete out of the foundation.
-- Every phase (parent + its sub-phases) fits one agent session (see Phase sizing).
+- Phases are vertical slices; only a thin bootstrap/prefactor precedes them. No layer-only phase.
+- Every phase (parent + its sub-phases) has at most 5 tasks and 12,000 characters (see Phase sizing).
 - Every task is traceable; every business-logic task has feature tests; every screen task has a design ref (or an open question if design is missing).
 - Cover **everything** in the description, stories, and schema. Completeness beats brevity.
 
@@ -214,6 +211,9 @@ grep -Fq '**Conventions:**' "$F"
 grep -E '^## Phase' "$F" | grep -vE '^## Phase [0-9]+: ' || true
 grep -E '^### Phase' "$F" | grep -vE '^### Phase [0-9]+\.[0-9]+: ' || true
 TASKS=$(grep -cE '^- \[[ x]\] \*\*Task:\*\*' "$F"); [ "$TASKS" -ge 1 ]
+# ralph limits: <= 5 checkbox tasks and <= 12000 chars per `## Phase N:` (must print nothing)
+awk '/^## Phase [0-9]+:/{p=$0;t=0;c=length($0)+1;next} /^## /{p="";next}
+     p{c+=length($0)+1; if($0~/^[[:space:]]*- \[[ xX]\]/)t++; if(t>5||c>12000){print "phase too large: " p; p=""}}' "$F"
 [ "$TASKS" -eq "$(grep -c '\*\*Acceptance criteria:\*\*' "$F")" ]   # every task has criteria
 [ "$TASKS" -eq "$(grep -c '\*\*Traces:\*\*' "$F")" ]                # every task is traceable
 # coverage: every story ID in the user-stories appendix appears in >=1 **Traces:** line

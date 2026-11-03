@@ -133,11 +133,16 @@ grep -Eq '^## Phase [0-9]+: ' .spec/features/[slug]/PHASES.md
 [ -z "$(grep -E '^## ' .spec/features/[slug]/PHASES.md | grep -Ev '^## Phase [0-9]+: ')" ]
 # checkbox count == PLAN task count
 [ "$(grep -c '^- \[ \]' .spec/features/[slug]/PHASES.md)" -eq "$(grep -Ec '^### T[0-9]+' .spec/features/[slug]/PLAN.md)" ]
+# ralph limits: <= 5 checkbox tasks and <= 12000 chars per phase (must print nothing)
+awk '/^## Phase [0-9]+:/{p=$0;t=0;c=length($0)+1;next} /^## /{p="";next}
+     p{c+=length($0)+1; if($0~/^[[:space:]]*- \[[ xX]\]/)t++; if(t>5||c>12000){print "phase too large: " p; p=""}}' .spec/features/[slug]/PHASES.md
 ```
 
 When the planner reports contracts emitted, also `test -f` each reported contract path.
 
-**Human checkpoint** — present task count, phases, risks, and contract paths when emitted; developer confirms the decomposition before closing.
+Any printed line or failed test → re-delegate to `planner` with the failing check; never hand ralph a PHASES.md it will reject.
+
+**Human checkpoint** — present task count, phases (each as a one-line vertical slice), risks, and contract paths when emitted; developer confirms the decomposition before closing.
 
 ### 8 — Summary
 

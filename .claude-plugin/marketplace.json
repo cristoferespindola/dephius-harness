@@ -1,12 +1,11 @@
 {
-  "name": "beer-and-code",
+  "name": "dephius",
   "owner": {
-    "name": "Beer and Code",
-    "email": "administrador@beerandcode.com.br"
+    "name": "Cristofer Espindola"
   },
   "metadata": {
-    "description": "Beer and Code harness marketplace — commands, scripts, and hooks for building robust, tested, real-world-proven projects.",
-    "version": "0.2.0"
+    "description": "Fork of the Beer and Code harness (bc-harness) with vertical-slice planning tuned for ralph.",
+    "version": "0.3.0"
   },
   "plugins": [
     {
