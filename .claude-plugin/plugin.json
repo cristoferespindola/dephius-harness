@@ -1,5 +1,5 @@
 {
-  "name": "bc-harness",
+  "name": "dephius",
   "version": "0.3.0",
   "description": "Beer and Code harness — commands, scripts, and hooks to help developers build robust, scalable, tested, real-world-proven projects.",
   "author": {

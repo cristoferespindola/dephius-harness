@@ -39,10 +39,10 @@ Transversal a tudo: **`/ai-context`** mantém a árvore de contexto (`AGENTS.md`
 O repositório é um plugin de Claude Code (`.claude-plugin/plugin.json`). Instale via marketplace/caminho local conforme sua configuração de plugins:
 
 ```
-/plugin install bc-harness
+/plugin install dephius@dephius
 ```
 
-Os comandos ficam disponíveis com namespace: `/bc-harness:init`, `/bc-harness:plan`, etc. (nesta documentação, abreviados sem o namespace).
+Os comandos ficam disponíveis com namespace: `/dephius:init`, `/dephius:plan`, etc. (nesta documentação, abreviados sem o namespace).
 
 O `ralph` vive em repositório próprio; `scripts/ralph.sh` aqui só delega a ele (veja abaixo).
 

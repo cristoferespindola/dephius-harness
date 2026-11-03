@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "bc-harness",
+      "name": "dephius",
       "source": "./",
       "description": "Beer and Code harness — commands, scripts, and hooks to help developers build robust, scalable, tested, real-world-proven projects."
     }
